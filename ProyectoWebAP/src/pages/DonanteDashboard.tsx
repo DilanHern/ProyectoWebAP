@@ -301,6 +301,7 @@ const DonanteDashboard: React.FC = () => {
                 type="date"
                 value={estimatedDeliveryDate}
                 onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
                 style={styles.input}
               />
               <span style={styles.helper}>Fecha aproximada en que podrás entregar los artículos al centro de acopio.</span>
