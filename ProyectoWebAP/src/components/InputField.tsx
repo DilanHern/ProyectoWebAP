@@ -30,7 +30,14 @@ const InputField: React.FC<InputFieldProps> = ({
       <style>{`
         .custom-input::placeholder {
           color: #82888C !important;
-          opacity: 1; /* Asegura el color exacto en navegadores basados en Firefox */
+          opacity: 1;
+        }
+        .custom-input:-webkit-autofill,
+        .custom-input:-webkit-autofill:hover,
+        .custom-input:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0px 1000px #13161C inset !important;
+          -webkit-text-fill-color: #EFEFEF !important;
+          caret-color: #EFEFEF;
         }
       `}</style>
 
