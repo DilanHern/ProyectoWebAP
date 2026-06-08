@@ -6,17 +6,20 @@ const BASE_URL =
 
 export interface DetalleValidacion {
   campo?: string;
-  mensaje?: string;
+  mensaje?: string | string[];
+  message?: string | string[];
 }
+
+type DetalleError = DetalleValidacion[] | Record<string, unknown> | string | null;
 
 export class ApiError extends Error {
   codigo: string;
 
   status: number;
 
-  detalle: DetalleValidacion[] | string | null;
+  detalle: DetalleError;
 
-  constructor(mensaje: string, codigo: string, status: number, detalle: DetalleValidacion[] | string | null = null) {
+  constructor(mensaje: string, codigo: string, status: number, detalle: DetalleError = null) {
     super(mensaje);
     this.name = "ApiError";
     this.codigo = codigo;
@@ -25,10 +28,30 @@ export class ApiError extends Error {
   }
 
   primerMensajeDeValidacion(): string | null {
+    if (typeof this.detalle === "string") return this.detalle;
+
     if (Array.isArray(this.detalle) && this.detalle.length > 0) {
       const primero = this.detalle[0];
-      return primero?.mensaje ?? null;
+      if (typeof primero === "string") return primero;
+      if (primero && typeof primero === "object") {
+        const mensaje = primero.mensaje ?? primero.message;
+        if (Array.isArray(mensaje)) return mensaje[0] ?? null;
+        return mensaje ?? null;
+      }
     }
+
+    if (this.detalle && typeof this.detalle === "object") {
+      for (const valor of Object.values(this.detalle)) {
+        if (typeof valor === "string") return valor;
+        if (Array.isArray(valor) && typeof valor[0] === "string") return valor[0];
+        if (valor && typeof valor === "object") {
+          const mensaje = (valor as DetalleValidacion).mensaje ?? (valor as DetalleValidacion).message;
+          if (Array.isArray(mensaje)) return mensaje[0] ?? null;
+          if (typeof mensaje === "string") return mensaje;
+        }
+      }
+    }
+
     return null;
   }
 }
@@ -93,7 +116,7 @@ interface RespuestaBackend<T> {
   exito?: boolean;
   mensaje?: string;
   datos?: T;
-  error?: { codigo?: string; detalle?: DetalleValidacion[] | string | null } | null;
+  error?: { codigo?: string; detalle?: DetalleError } | null;
 }
 
 async function ejecutarPeticion<T>(ruta: string, opciones: OpcionesPeticion, token: string | null): Promise<{ status: number; json: RespuestaBackend<T> }> {

@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import InputField from "../components/InputField";
 import PrimaryButton from "../components/PrimaryButton";
 import ModalOverlay from "../components/ModalOverlay";
+import InfoBanner from "../components/InfoBanner";
 import { type Usuario } from "../lib/sistratec";
-import { ApiError } from "../lib/api";
+import { mensajeDeError } from "../lib/api";
 
 interface ServicioCuentas {
   listar: () => Promise<Usuario[]>;
@@ -34,6 +35,9 @@ const GestorCuentas: React.FC<GestorCuentasProps> = ({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editando, setEditando] = useState<Usuario | null>(null);
+  const [cuentaACambiarEstado, setCuentaACambiarEstado] = useState<Usuario | null>(null);
+  const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const [errorEstado, setErrorEstado] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -41,8 +45,7 @@ const GestorCuentas: React.FC<GestorCuentasProps> = ({
     try {
       setCuentas(await servicio.listar());
     } catch (err) {
-      if (err instanceof ApiError) setError(err.message);
-      else setError("No pudimos cargar las cuentas. Tus datos están a salvo, intenta de nuevo.");
+      setError(mensajeDeError(err));
     } finally {
       setCargando(false);
     }
@@ -52,13 +55,20 @@ const GestorCuentas: React.FC<GestorCuentasProps> = ({
     cargar();
   }, [cargar, refrescarSenal]);
 
-  const cambiarEstado = async (cuenta: Usuario) => {
+  const cambiarEstado = async (cuenta: Usuario, desdeConfirmacion = false) => {
+    setError(null);
+    setErrorEstado(null);
+    setCambiandoEstado(true);
     try {
       await servicio.cambiarEstado(cuenta.id, !cuenta.isActive);
+      if (desdeConfirmacion) setCuentaACambiarEstado(null);
       await cargar();
     } catch (err) {
-      if (err instanceof ApiError) setError(err.message);
-      else setError("No pudimos cambiar el estado. Tus datos están a salvo, intenta de nuevo.");
+      const mensaje = mensajeDeError(err);
+      if (desdeConfirmacion) setErrorEstado(mensaje);
+      else setError(mensaje);
+    } finally {
+      setCambiandoEstado(false);
     }
   };
 
@@ -110,7 +120,10 @@ const GestorCuentas: React.FC<GestorCuentasProps> = ({
                       </button>
                       <button
                         style={c.isActive ? styles.linkBtnRojo : styles.linkBtnVerde}
-                        onClick={() => cambiarEstado(c)}
+                        onClick={() => {
+                          setErrorEstado(null);
+                          setCuentaACambiarEstado(c);
+                        }}
                       >
                         {c.isActive ? "Desactivar" : "Activar"}
                       </button>
@@ -135,7 +148,108 @@ const GestorCuentas: React.FC<GestorCuentasProps> = ({
           onCancel={() => setEditando(null)}
         />
       )}
+
+      {cuentaACambiarEstado && (
+        <ConfirmarCambiarEstadoCuentaModal
+          cuenta={cuentaACambiarEstado}
+          enviando={cambiandoEstado}
+          error={errorEstado}
+          onConfirm={() => cambiarEstado(cuentaACambiarEstado, true)}
+          onCancel={() => {
+            if (cambiandoEstado) return;
+            setCuentaACambiarEstado(null);
+            setErrorEstado(null);
+          }}
+        />
+      )}
     </div>
+  );
+};
+
+interface ConfirmarCambiarEstadoCuentaModalProps {
+  cuenta: Usuario;
+  enviando: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+const WarningIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b8860b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const UserIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00d4f5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const ConfirmarCambiarEstadoCuentaModal: React.FC<ConfirmarCambiarEstadoCuentaModalProps> = ({
+  cuenta,
+  enviando,
+  error,
+  onConfirm,
+  onCancel,
+}) => {
+  const vaADesactivar = cuenta.isActive;
+  const accion = vaADesactivar ? "desactivar" : "activar";
+  const accionCapitalizada = vaADesactivar ? "Desactivar" : "Activar";
+  const etiquetaEnviando = vaADesactivar ? "Desactivando..." : "Activando...";
+
+  return (
+    <ModalOverlay onClose={onCancel}>
+      <div style={styles.modalHeader}>
+        <h2 style={styles.modalTitle}>{accionCapitalizada} cuenta</h2>
+        <button style={styles.closeBtn} onClick={onCancel} aria-label="Cerrar" disabled={enviando}>
+          ×
+        </button>
+      </div>
+
+      <InfoBanner
+        variant="info"
+        icon={<UserIcon />}
+        title={`Vas a ${accion} a ${cuenta.fullName}`}
+        description={cuenta.email}
+      />
+
+      <InfoBanner
+        variant="warning"
+        icon={<WarningIcon />}
+        title={vaADesactivar ? "Esta cuenta perderá acceso" : "Esta cuenta recuperará acceso"}
+        description={
+          vaADesactivar
+            ? "La persona no podrá iniciar sesión ni usar las funciones de su rol mientras la cuenta esté inactiva. Podrás activarla nuevamente desde este panel."
+            : "La persona podrá volver a iniciar sesión y usar las funciones de su rol. Podrás desactivarla nuevamente desde este panel."
+        }
+      />
+
+      {error && (
+        <InfoBanner
+          variant="warning"
+          icon={<WarningIcon />}
+          title={`No pudimos ${accion} la cuenta`}
+          description={error}
+        />
+      )}
+
+      <div style={styles.modalActions}>
+        <button style={styles.cancelBtn} onClick={onCancel} disabled={enviando}>
+          Cancelar
+        </button>
+        <button
+          style={vaADesactivar ? styles.dangerConfirmBtn : styles.successConfirmBtn}
+          onClick={onConfirm}
+          disabled={enviando}
+        >
+          {enviando ? etiquetaEnviando : `${accionCapitalizada} cuenta`}
+        </button>
+      </div>
+    </ModalOverlay>
   );
 };
 
@@ -172,8 +286,7 @@ const EditarCuentaModal: React.FC<EditarCuentaModalProps> = ({
       await servicio.editar(cuenta.id, datos);
       onGuardado();
     } catch (err) {
-      if (err instanceof ApiError) setError(err.message);
-      else setError("No pudimos guardar los cambios. Tus datos están a salvo, intenta de nuevo.");
+      setError(mensajeDeError(err));
       setEnviando(false);
     }
   };
@@ -187,8 +300,19 @@ const EditarCuentaModal: React.FC<EditarCuentaModalProps> = ({
         </button>
       </div>
       <div style={styles.form}>
-        <InputField label="Nombre completo" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-        <InputField label="Correo electrónico" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <InputField
+          label="Nombre completo"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          helperText={mostrarVehiculo ? "Como aparece en la cédula del transportista." : "Como aparece en la cédula."}
+        />
+        <InputField
+          label="Correo electrónico"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          helperText="Será su usuario para iniciar sesión."
+        />
         <InputField
           label="Teléfono (opcional)"
           value={phone}
@@ -367,6 +491,30 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "6px",
     fontSize: "15px",
     fontWeight: "600",
+    fontFamily: "'Inter', sans-serif",
+    cursor: "pointer",
+  },
+  dangerConfirmBtn: {
+    flex: 1,
+    padding: "14px",
+    backgroundColor: "#e06464",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "6px",
+    fontSize: "15px",
+    fontWeight: "700",
+    fontFamily: "'Inter', sans-serif",
+    cursor: "pointer",
+  },
+  successConfirmBtn: {
+    flex: 1,
+    padding: "14px",
+    backgroundColor: "#3fd17e",
+    color: "#0a0f14",
+    border: "none",
+    borderRadius: "6px",
+    fontSize: "15px",
+    fontWeight: "700",
     fontFamily: "'Inter', sans-serif",
     cursor: "pointer",
   },

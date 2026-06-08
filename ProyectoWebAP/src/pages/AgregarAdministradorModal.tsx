@@ -36,17 +36,32 @@ const AgregarAdministradorModal: React.FC<AgregarAdministradorModalProps> = ({ o
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const passwordCumpleReglas = /^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password);
+  const camposCompletos =
+    fullName.trim().length > 0 &&
+    email.trim().length > 0 &&
+    phone.trim().length > 0 &&
+    address.trim().length > 0 &&
+    password.length > 0;
 
-  const formularioValido =
-    fullName.trim().length >= 2 &&
-    /\S+@\S+\.\S+/.test(email) &&
-    /^\d{8}$/.test(phone) &&
-    address.trim().length >= 5 &&
-    passwordCumpleReglas;
+  const validarFormulario = (): string | null => {
+    if (fullName.trim().length < 2) return "El nombre completo debe tener al menos 2 caracteres.";
+    if (!/\S+@\S+\.\S+/.test(email)) return "Ingresa un correo electrónico válido.";
+    if (!/^\d{8}$/.test(phone)) return "El teléfono debe tener exactamente 8 dígitos.";
+    if (address.trim().length < 5) return "La dirección exacta debe tener al menos 5 caracteres.";
+    if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) {
+      return "La contraseña debe tener mínimo 8 caracteres, incluir una letra mayúscula y al menos un número.";
+    }
+    return null;
+  };
 
   const crear = async () => {
     setError(null);
+    const errorValidacion = validarFormulario();
+    if (errorValidacion) {
+      setError(errorValidacion);
+      return;
+    }
+
     setEnviando(true);
     try {
       await administradoresService.crear({
@@ -129,7 +144,7 @@ const AgregarAdministradorModal: React.FC<AgregarAdministradorModalProps> = ({ o
           <PrimaryButton
             label={enviando ? "Creando cuenta..." : "Crear cuenta"}
             onClick={crear}
-            disabled={!formularioValido || enviando}
+            disabled={!camposCompletos || enviando}
           />
         </div>
       </div>

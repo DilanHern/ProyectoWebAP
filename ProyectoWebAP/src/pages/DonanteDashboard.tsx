@@ -128,6 +128,7 @@ const DonanteDashboard: React.FC = () => {
         setPerfilEmail(datos.email);
         setPerfilPhone(datos.phone || "");
         setPerfilAddress(datos.address || "");
+        setPickupAddress((actual) => actual || datos.address || "");
       })
       .catch(() => undefined);
   }, []);
@@ -194,7 +195,7 @@ const DonanteDashboard: React.FC = () => {
       setDonationTypeId("");
       setCollectionCenterId("");
       setDescripcion("");
-      setPickupAddress("");
+      setPickupAddress(perfilAddress.trim());
       setEstimatedDeliveryDate("");
       cargarDonaciones();
     } catch (err) {
