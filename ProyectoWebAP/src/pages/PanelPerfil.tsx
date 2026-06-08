@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import InputField from "../components/InputField";
 import PrimaryButton from "../components/PrimaryButton";
-import { perfilService, type Usuario } from "../lib/sistratec";
+import { perfilService, validarNuevaPassword, type Usuario } from "../lib/sistratec";
 import { api, mensajeDeError } from "../lib/api";
 
 interface PanelPerfilProps {
@@ -98,8 +98,9 @@ const PanelPerfil: React.FC<PanelPerfilProps> = ({ mostrarVehiculo = false, most
     setMensajePass(null);
     setErrorPass(null);
 
-    if (passwordNueva !== passwordRepetir) {
-      setErrorPass("La nueva contraseña y su confirmación no coinciden.");
+    const errorValidacion = validarNuevaPassword(passwordActual, passwordNueva, passwordRepetir);
+    if (errorValidacion) {
+      setErrorPass(errorValidacion);
       return;
     }
 
@@ -117,7 +118,7 @@ const PanelPerfil: React.FC<PanelPerfilProps> = ({ mostrarVehiculo = false, most
     }
   };
 
-  const passwordValida = passwordActual.length > 0 && passwordNueva.length >= 8 && passwordRepetir.length > 0;
+  const passwordValida = passwordActual.length > 0 && passwordNueva.length > 0 && passwordRepetir.length > 0;
 
   const iniciales = (fullName || "U")
     .split(" ")

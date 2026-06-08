@@ -5,7 +5,7 @@ import PrimaryButton from "../components/PrimaryButton";
 import StatusBadge from "../components/StatusBadge";
 import { getCurrentUser } from "../lib/session";
 import { perfilService, validarNuevaPassword, type EstadoDonacion, type Usuario } from "../lib/sistratec";
-import { api, ApiError, mensajeDeError } from "../lib/api";
+import { api, mensajeDeError } from "../lib/api";
 
 interface TipoDonacion { id: number; nombre: string }
 interface CentroAcopio { id: number; nombre: string; direccion?: string }
@@ -154,8 +154,10 @@ const DonanteDashboard: React.FC = () => {
   const cambiarPassword = async () => {
     setMensajePass(null);
     setErrorPass(null);
-    if (passwordNueva !== passwordRepetir) {
-      setErrorPass("La nueva contraseña y su confirmación no coinciden.");
+
+    const errorValidacion = validarNuevaPassword(passwordActual, passwordNueva, passwordRepetir);
+    if (errorValidacion) {
+      setErrorPass(errorValidacion);
       return;
     }
     setCambiandoPass(true);
@@ -202,17 +204,6 @@ const DonanteDashboard: React.FC = () => {
     }
   };
 
-  const cancelarFormulario = () => {
-    setDonationTypeId("");
-    setCollectionCenterId("");
-    setDescripcion("");
-    setPickupAddress("");
-    setEstimatedDeliveryDate("");
-    setErrorRegistro(null);
-    setTrackingNuevo(null);
-    window.location.hash = "#/";
-  };
-
   const iniciales = (perfil?.fullName || usuario?.fullName || "U")
     .split(" ")
     .slice(0, 2)
@@ -222,7 +213,7 @@ const DonanteDashboard: React.FC = () => {
   const total = donaciones.length;
   const enProceso = donaciones.filter((d) => d.estado !== "entregado").length;
   const entregados = donaciones.filter((d) => d.estado === "entregado").length;
-  const passwordValida = passwordActual.length > 0 && passwordNueva.length >= 8 && passwordRepetir.length > 0;
+  const passwordValida = passwordActual.length > 0 && passwordNueva.length > 0 && passwordRepetir.length > 0;
 
   return (
     <DashboardLayout
@@ -329,9 +320,6 @@ const DonanteDashboard: React.FC = () => {
               <PrimaryButton label={registrando ? "Registrando..." : "Registrar donación"} onClick={registrarDonacion} disabled={registrando} />
             </div>
             <div style={styles.cancelWrap}>
-              <button style={styles.cancelLink} onClick={cancelarFormulario}>
-                Cancelar y volver al inicio
-              </button>
             </div>
           </div>
         </div>
